@@ -8,10 +8,18 @@
 #include <sys/mman.h>
 #include <sys/wait.h>
 
+typedef struct {
+  pid_t pid;
+  int wait_status; 
+  int fork_success;
+} Child; 
+
 int compare( const void *left, const void *right );
 void swap( int64_t *arr, unsigned long i, unsigned long j );
 unsigned long partition( int64_t *arr, unsigned long start, unsigned long end );
 int quicksort( int64_t *arr, unsigned long start, unsigned long end, unsigned long par_threshold );
+Child quicksort_partition(int64_t *arr, unsigned long start, unsigned long end, unsigned long par_threshold);
+void wait_check(Child *child);
 
 // TODO: declare additional helper functions if needed
 
@@ -162,11 +170,7 @@ unsigned long partition( int64_t *arr, unsigned long start, unsigned long end ) 
 }
 
 
-typedef struct {
-  pid_t pid;
-  int status; 
-  int successl
-} Child; 
+
 
 // Sort specified region of array.
 // Note that the only reason that sorting should fail is
@@ -237,3 +241,47 @@ int quicksort( int64_t *arr, unsigned long start, unsigned long end, unsigned lo
 }
 
 // TODO: define additional helper functions if needed
+
+Child quicksort_partition(int64_t *arr, unsigned long start, unsigned long end, unsigned long par_threshold) {
+  Child child;
+  pid_t pid = fork();
+  if (pid < 0) {
+    fprintf(stderr, "Error: fork failed.\n");
+    child.fork_success = 0;
+    return child;
+  } else if (pid == 0) {
+    int success = quicksort(arr, start, end, par_threshold);
+    if (success) {
+      exit( 0 );
+    } else {
+      exit( 1 );
+    }
+  } else {
+    child.pid = pid;
+    child.fork_success = 1;
+    return child;
+  }
+}
+
+int quicksort_wait_check(Child *child) {
+  if (child->fork_success == 0) {
+    return 0;
+  }
+
+  int rc = waitpid(child->pid, &(child->wait_status), 0);
+  if (rc < 0) {
+    fprintf(stderr, "Error: waitpid failed for child.\n");
+    return 0;
+  } else {
+    if (!WIFEXITED(child->wait_status)) {
+      fprintf(stderr, "Error: child did not exit normally.\n");
+      return 0;
+    } else if (WEXITSTATUS(child->wait_status) != 0) {
+      fprintf(stderr, "Error: child exited with non-zero exit code.\n");
+      return 0;
+    }
+
+  }
+  return 1;
+
+}
