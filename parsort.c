@@ -209,57 +209,89 @@ int quicksort( int64_t *arr, unsigned long start, unsigned long end, unsigned lo
   // Recursively sort the left and right partitions
   int left_success, right_success;
   // TODO: modify this code so that the recursive calls execute in child processes
-  Child left_child = quicksort_partition(arr, start, mid, par_threshold);
-  Child right_child = quicksort_partition(arr, mid + 1, end, par_threshold);
+  Child left_child = quicksort_partition(arr, start, mid, par_threshold);   // child process to sort left side
+  Child right_child = quicksort_partition(arr, mid + 1, end, par_threshold); // child process to sort right side
 
-  left_success = quicksort_wait_check(&left_child);
-  right_success = quicksort_wait_check(&right_child);
+  // wait for process to finish
+  left_success = quicksort_wait_check(&left_child); 
+  right_success = quicksort_wait_check(&right_child); 
 
   return left_success && right_success;
 }
 
 // TODO: define additional helper functions if needed
 
+// Create a child process to sort a region of the array by using fork()
+// The parent process returns a Child struct containing the child's pid 
+// and fork status
+//
+// Parameters:
+//   arr - pointer to first element of array
+//   start - inclusive lower bound index
+//   end - exclusive upper bound index
+//   par_threshold - if the number of elements in the region is less
+//                   than or equal to this threshold, sort sequentially,
+//                   otherwise sort in parallel using child processes
+// 
+// Return: 
+//  Child struct which contains the following:
+//    pid: process ID of the child (under the assumption that fork succeeded)
+//    fork_success: 1 if the fork succeeded, 0 if not
+//  The child process will call exit(0) if sorting succeeded or exit(1) otherwise
 Child quicksort_partition(int64_t *arr, unsigned long start, unsigned long end, unsigned long par_threshold) {
-  Child child;
+  Child child; // create child
   pid_t pid = fork();
   if (pid < 0) {
     fprintf(stderr, "Error: fork failed.\n");
-    child.fork_success = 0;
+    child.fork_success = 0; // set success to 0 
     return child;
-  } else if (pid == 0) {
-    int success = quicksort(arr, start, end, par_threshold);
+  } else if (pid == 0) { // child process
+    int success = quicksort(arr, start, end, par_threshold); // quick sort region
     if (success) {
-      exit( 0 );
+      exit( 0 ); // sorting succeeded
     } else {
       exit( 1 );
     }
-  } else {
-    child.pid = pid;
+  } else { // parent process
+    child.pid = pid;    
     child.fork_success = 1;
     return child;
   }
 }
 
+// Wait for a child process to complete and check if it successfully executed
+// This function calls waitpid() to see if the process finished with an exit status
+// of 0. If the child exited with anything else besides 0 or if waitpid fails, an 
+// error will be reported. 
+//
+// Parameters:
+//  child: pointer to a Child struct with the process ID and fork wait_status.
+//
+// Return:
+//  1: if the child process exited normally with exit code 0
+//  0: if the child process, exited with an exit code that's not 0, if waitpid() failed, or
+//     the child process was never created
 int quicksort_wait_check(Child *child) {
+  // check if the fork failed
   if (child->fork_success == 0) {
     return 0;
   }
 
-  int rc = waitpid(child->pid, &(child->wait_status), 0);
-  if (rc < 0) {
+  int rc = waitpid(child->pid, &(child->wait_status), 0); // wait for child process to finish and record exit code
+  if (rc < 0) { // check if waitpid failed
     fprintf(stderr, "Error: waitpid failed for child.\n");
     return 0;
   } else {
-    if (!WIFEXITED(child->wait_status)) {
+    if (!WIFEXITED(child->wait_status)) { // check if child process finished normally
       fprintf(stderr, "Error: child did not exit normally.\n");
       return 0;
-    } else if (WEXITSTATUS(child->wait_status) != 0) {
+    } else if (WEXITSTATUS(child->wait_status) != 0) { // check if child process exited with a non-zero code
       fprintf(stderr, "Error: child exited with non-zero exit code.\n");
       return 0;
     }
 
   }
-  return 1;
+
+  return 1; // success
 
 }
