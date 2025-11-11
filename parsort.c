@@ -26,11 +26,25 @@ int main( int argc, char **argv ) {
 
   // open the named file
   // TODO: open the named file
+  fd = open(argv[1], O_RDWR);
+  if (fd < 0) {
+    fprintf(stderr, "File open failed.");
+    exit( 1 );
+  }
 
   // determine file size and number of elements
   unsigned long file_size, num_elements;
   // TODO: determine the file size and number of elements
+  struct stat statbuf;
+  int rc = fstat(fd, &statbuf);
+  if (rc != 0) {
+    fprintf(stderr, "Error: uanble to retrieve file information for file.");
+    close(fd);
+    exit( 1 );
+  }
 
+  file_size = (unsigned long) statbuf.st_size;
+  num_elements = file_size / sizeof(int64_t);
   // mmap the file data
   int64_t *arr;
   // TODO: mmap the file data
