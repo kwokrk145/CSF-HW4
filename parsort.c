@@ -38,7 +38,7 @@ int main( int argc, char **argv ) {
   struct stat statbuf;
   int rc = fstat(fd, &statbuf);
   if (rc != 0) {
-    fprintf(stderr, "Error: uanble to retrieve file information for file.");
+    fprintf(stderr, "Error: uanble to retrieve file information for file.\n");
     close(fd);
     exit( 1 );
   }
@@ -48,7 +48,12 @@ int main( int argc, char **argv ) {
   // mmap the file data
   int64_t *arr;
   // TODO: mmap the file data
-
+  arr = mmap(NULL, file_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+  close(fd);
+  if (arr == MAP_FAILED) {
+    fprintf(stderr, "Error: mmap failed to map file into memory.\n");
+    exit( 1 );
+  }
   // Sort the data!
   int success;
   success = quicksort( arr, 0, num_elements, par_threshold );
@@ -59,6 +64,7 @@ int main( int argc, char **argv ) {
 
   // Unmap the file data
   // TODO: unmap the file data
+  munmap( arr, file_size );
 
   return 0;
 }
@@ -155,6 +161,13 @@ unsigned long partition( int64_t *arr, unsigned long start, unsigned long end ) 
   return left_index;
 }
 
+
+typedef struct {
+  pid_t pid;
+  int status; 
+  int successl
+} Child; 
+
 // Sort specified region of array.
 // Note that the only reason that sorting should fail is
 // if a child process can't be created or if there is any
@@ -192,8 +205,33 @@ int quicksort( int64_t *arr, unsigned long start, unsigned long end, unsigned lo
   // Recursively sort the left and right partitions
   int left_success, right_success;
   // TODO: modify this code so that the recursive calls execute in child processes
-  left_success = quicksort( arr, start, mid, par_threshold );
-  right_success = quicksort( arr, mid + 1, end, par_threshold );
+  pid_t left_pid = fork();
+  if (left_pid == 0) {
+    int success1;
+    success1 = quicksort(arr, start, mid, par_threshold);
+    if (success1) {
+      exit( 0 );
+    } else {
+      exit ( 1 );
+    }
+  } else if (left_pid < 0) {
+    fprint(stderr, "Error: fork failed.\n");
+    exit( 0 );
+  }
+
+  pid_t right_pid = fork(); 
+  if (right_pid == 0) {
+    int success2;
+    success2 = quicksort(arr, mid+1, end, par_threshold);
+    if (success2) {
+      exit( 0 );
+    } else {
+      exit( 1 );
+    }
+  } else if (right_pid < 0) {
+    fprintf(stderr, "Error: fork failed.\n");
+    exit( 1 );
+  }
 
   return left_success && right_success;
 }
