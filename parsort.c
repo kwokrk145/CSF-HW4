@@ -209,33 +209,11 @@ int quicksort( int64_t *arr, unsigned long start, unsigned long end, unsigned lo
   // Recursively sort the left and right partitions
   int left_success, right_success;
   // TODO: modify this code so that the recursive calls execute in child processes
-  pid_t left_pid = fork();
-  if (left_pid == 0) {
-    int success1;
-    success1 = quicksort(arr, start, mid, par_threshold);
-    if (success1) {
-      exit( 0 );
-    } else {
-      exit ( 1 );
-    }
-  } else if (left_pid < 0) {
-    fprint(stderr, "Error: fork failed.\n");
-    exit( 0 );
-  }
+  Child left_child = quicksort_partition(arr, start, mid, par_threshold);
+  Child right_child = quicksort_partition(arr, mid + 1, end, par_threshold);
 
-  pid_t right_pid = fork(); 
-  if (right_pid == 0) {
-    int success2;
-    success2 = quicksort(arr, mid+1, end, par_threshold);
-    if (success2) {
-      exit( 0 );
-    } else {
-      exit( 1 );
-    }
-  } else if (right_pid < 0) {
-    fprintf(stderr, "Error: fork failed.\n");
-    exit( 1 );
-  }
+  left_success = quicksort_wait_check(&left_child);
+  right_success = quicksort_wait_check(&right_child);
 
   return left_success && right_success;
 }
