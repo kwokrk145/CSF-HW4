@@ -19,7 +19,7 @@ void swap( int64_t *arr, unsigned long i, unsigned long j );
 unsigned long partition( int64_t *arr, unsigned long start, unsigned long end );
 int quicksort( int64_t *arr, unsigned long start, unsigned long end, unsigned long par_threshold );
 Child quicksort_partition(int64_t *arr, unsigned long start, unsigned long end, unsigned long par_threshold);
-void wait_check(Child *child);
+int quicksort_wait_check(Child *child);
 
 // TODO: declare additional helper functions if needed
 
